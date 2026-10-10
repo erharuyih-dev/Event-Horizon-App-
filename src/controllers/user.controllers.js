@@ -10,22 +10,35 @@ const signUp = async (req, res) => {
     }
     const user = await User.findOne({ email });
     if (user) {
-      res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "profile already exists", user });
     }
-    const newUser = await User.create({
-      firstName,
-      lastName,
-      email,
-      password,
-    });
-
+    const newUser = await User.create({ firstName, lastName, email, password });
     return res
       .status(201)
-      .json({ message: "User created successfully", newUser });
+      .json({ message: "signup successfully done", newUser });
   } catch (error) {
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });
   }
 };
-module.exports = signUp;
+
+const logIn = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    if (!email || !password) {
+      return res.status(400).json({ message: "Enter email and password" });
+    }
+    const user = await User.findOne({ email });
+    if (!user || user.password !== password) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+    return res.status(200).json({ message: "Login successful", user });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+module.exports = { signUp, logIn };
