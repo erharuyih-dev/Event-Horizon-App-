@@ -1,7 +1,11 @@
+// This file defines the structure of the User collection in MongoDB.
+// It tells Mongoose what fields the user document should contain.
+
 const mongoose = require("mongoose");
 const connectDB = require("../configs/db");
 const Schema = mongoose.Schema;
 
+// Create the user schema with required fields and validation rules
 const userSchema = new Schema(
   {
     firstName: {
@@ -23,10 +27,12 @@ const userSchema = new Schema(
     },
   },
   {
-    timestamps: true,
-    versionKey: false,
+    timestamps: true, // Adds createdAt and updatedAt automatically
+    versionKey: false, // Removes the __v field from documents
   },
 );
 
+// Convert the schema into a MongoDB model called User
 const User = mongoose.model("User", userSchema);
+
 module.exports = User;
