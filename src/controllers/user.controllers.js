@@ -1,65 +1,70 @@
-// This controller handles user registration and login logic.
-// It receives requests from the route layer and interacts with the User model in MongoDB.
-
+// this controller handles user signup and login functionality
+// const dotenv = require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const User = require("../models/user.models");
 
-// Register a new user
+// this function handles user signup( creating a new user profile and encrpts the password before saving it to the database)
 const signUp = async (req, res) => {
-  // Extract incoming form data from the request body
-  const { firstName, lastName, email, password } = req.body;
+  const { firstName, otherNames, lastName, email, password } = req.body;
 
   try {
-    // Validate that all required fields were provided
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !otherNames || !lastName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
+    const encryptPassword = await bcrypt.hash(password, 10);
 
-    // Check whether a user with the same email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const oldUser = await User.findOne({ email });
+    if (oldUser) {
       return res.status(400).json({ message: "profile already exist" });
     }
 
-    // Create the user in the database
-    const newUser = await User.create({ firstName, lastName, email, password });
+    const newUser = await User.create({
+      firstName,
+      otherNames,
+      lastName,
+      email,
+      password: encryptPassword,
+    });
 
-    // Send a success response after signup
     return res
       .status(201)
       .json({ message: "signup successfully done", newUser });
   } catch (error) {
-    // Handle unexpected server errors
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });
   }
 };
-
-// Log in an existing user
+// this function handles user login (verifies the user credentials and returns a success message if the credentials are valid)
 const logIn = async (req, res) => {
-  // Extract credentials from request body
-  const { email, password } = req.body;
-
   try {
-    // Validate email and password are present
+    const { email, password } = req.body;
+
     if (!email || !password) {
       return res.status(400).json({ message: "Enter email and password" });
     }
 
-    // Look for the user by email
     const user = await User.findOne({ email });
 
-    // If user does not exist or password is wrong, reject login
-    if (!user || user.password !== password) {
-      return res.status(400).json({ message: "Invalid email or password" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // Return the logged-in user details if credentials are correct
-    return res.status(200).json({ message: "Login successful", user });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: "Incorrect password" });
+    }
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Login successful", user: user, token: token });
   } catch (error) {
-    // Handle database or server errors
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });

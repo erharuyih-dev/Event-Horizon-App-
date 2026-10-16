@@ -1,25 +1,38 @@
-// This file defines the structure of the User collection in MongoDB.
-// It tells Mongoose what fields the user document should contain.
-
 const mongoose = require("mongoose");
 const connectDB = require("../configs/db");
 const Schema = mongoose.Schema;
 
-// Create the user schema with required fields and validation rules
 const userSchema = new Schema(
   {
     firstName: {
       type: String,
       required: [true, "Enter your First Name"],
+      trim: true,
+      set: (value) =>
+        value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : value,
     },
+    otherNames: {
+      type: String,
+      trim: true,
+    },
+
     lastName: {
       type: String,
       required: [true, "Enter your Last Name"],
+      trim: true,
+      set: (value) =>
+        value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : value,
     },
     email: {
       type: String,
       required: [true, "enter a valid email address"],
       unique: [true, "this email already exixts"],
+      trim: true,
+      match: [
+        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+        "Please fill a valid email address",
+      ],
+      lowercase: true,
     },
     password: {
       type: String,
@@ -27,12 +40,11 @@ const userSchema = new Schema(
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt automatically
-    versionKey: false, // Removes the __v field from documents
+    timestamps: true,
+    versionKey: false,
   },
 );
 
-// Convert the schema into a MongoDB model called User
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;
