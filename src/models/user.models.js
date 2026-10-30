@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+mongoose = require("mongoose");
 const connectDB = require("../configs/db");
 const Schema = mongoose.Schema;
 
@@ -6,41 +6,49 @@ const userSchema = new Schema(
   {
     firstName: {
       type: String,
-      required: [true, "Enter your First Name"],
-      trim: true,
-      set: (value) =>
-        value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : value,
-    },
-    otherNames: {
-      type: String,
-      trim: true,
+      required: true,
+      set: (value) => {
+        if (!value) return value;
+        // Capitalizes the first letter and leaves the rest as-is
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      },
     },
 
     lastName: {
       type: String,
-      required: [true, "Enter your Last Name"],
-      trim: true,
-      set: (value) =>
-        value ? value.replace(/\b\w/g, (char) => char.toUpperCase()) : value,
+      required: true,
+      set: (value) => {
+        if (!value) return value;
+        // Capitalizes the first letter and leaves the rest as-is
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      },
     },
     email: {
       type: String,
-      required: [true, "enter a valid email address"],
-      unique: [true, "this email already exixts"],
-      trim: true,
-      match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        "Please fill a valid email address",
-      ],
+      required: true,
+      unique: true,
       lowercase: true,
     },
     password: {
       type: String,
-      required: [true, "enter a strong password"],
+      required: [true, "enter your password"],
+      trim: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otp: {
+      type: String,
+      default: null,
+    },
+    otpExpiresAt: {
+      type: Date,
+      default: null,
     },
   },
   {
-    timestamps: true,
+    timestamp: true,
     versionKey: false,
   },
 );

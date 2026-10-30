@@ -19,7 +19,7 @@ app.get("/", (req, res) => {
   }
 });
 
-app.use("/api/v1", router);
+app.use("/api/v1/user", router);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

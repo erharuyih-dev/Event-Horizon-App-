@@ -1,74 +1,137 @@
-// this controller handles user signup and login functionality
-// const dotenv = require("dotenv").config();
+const dotenv = require("dotenv").config();
 const express = require("express");
-const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.models");
 
-// this function handles user signup( creating a new user profile and encrpts the password before saving it to the database)
-const signUp = async (req, res) => {
-  const { firstName, otherNames, lastName, email, password } = req.body;
-
+const createUser = async (req, res) => {
+  const { firstName, lastName, email, password } = req.body;
   try {
-    if (!firstName || !otherNames || !lastName || !email || !password) {
+    if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
-    const encryptPassword = await bcrypt.hash(password, 10);
-
-    const oldUser = await User.findOne({ email });
-    if (oldUser) {
-      return res.status(400).json({ message: "profile already exist" });
+    const hashPassword = await bcrypt.hash(password, 10);
+    const user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: "profile already exists" });
     }
 
     const newUser = await User.create({
       firstName,
-      otherNames,
       lastName,
       email,
-      password: encryptPassword,
+      password: hashPassword,
     });
-
     return res
       .status(201)
-      .json({ message: "signup successfully done", newUser });
+      .json({ message: "Profile created successfully", newUser: newUser });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    return res.status(500).json({ message: "Internal Server Error", error });
   }
 };
-// this function handles user login (verifies the user credentials and returns a success message if the credentials are valid)
-const logIn = async (req, res) => {
+
+const signIn = async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
-
     if (!email || !password) {
-      return res.status(400).json({ message: "Enter email and password" });
+      return res.status(400).json({ message: "Enter your email and password" });
     }
-
     const user = await User.findOne({ email });
-
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(400)
+        .json({ message: "you have entered a wrong email" });
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: "Incorrect password" });
+    const verifyPassword = await bcrypt.compare(password, user.password);
+    if (!verifyPassword) {
+      return res
+        .status(400)
+        .json({ message: "U have entered a wrong password" });
+    }
+    if (user.otp === null) {
+      return res.status(400).json({ message: "you haven't verified your otp" });
+    }
+    if (user.isVerified === false) {
+      return res.status(400).json({ message: "you haven't verified your otp" });
     }
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
+    user.token = token;
 
     return res
-      .status(200)
-      .json({ message: "Login successful", user: user, token: token });
+      .status(201)
+      .json({ message: "Login Successful", user: user, token: token });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    return res.status(500).json({ message: "Internaal Server error", error });
   }
 };
 
-module.exports = { signUp, logIn };
+const sendOtp = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "invalid id" });
+    }
+    if (user.isVerified === true) {
+      user.otp = null;
+      user.otpExpiresAt = null;
+      return res.status(400).json({ message: "this user is already verified" });
+    }
+
+    // Generate a 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    user.otp = otpCode;
+    user.otpExpiresAt = otpExpiresAt;
+
+    await user.save(); // Save the user document, NOT otp
+
+    return res.status(201).json({
+      message: "otp generated successfully",
+      otp: user.otp,
+    });
+  } catch (error) {
+    console.error(error); // This will print the exact error in your terminal console
+    return res.status(500).json({
+      message: "Internal Server, failed to generate otp",
+      error: error.message,
+    });
+  }
+};
+
+const verifyOtp = async (req, res) => {
+  const { otp } = req.body;
+  try {
+    const user = await User.findOne({ otp: otp });
+    // if (!user) {
+    //   return res.status(400).json({ message: "user not found" });
+    // }
+    if (!user) {
+      return res.status(400).json({ message: "invalid otp" });
+    }
+    if (user.isVerified === true) {
+      return res.status(400).json({ message: "user is already verified!" });
+    }
+
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ message: "otp has expired" });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiresAt = null;
+    await user.save();
+
+    return res.status(201).json({ message: "email verified successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal Server Error", error });
+  }
+};
+module.exports = {
+  createUser,
+  signIn,
+  sendOtp,
+  verifyOtp,
+};
