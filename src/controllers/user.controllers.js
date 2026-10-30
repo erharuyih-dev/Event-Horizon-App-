@@ -48,9 +48,9 @@ const signIn = async (req, res) => {
         .status(400)
         .json({ message: "U have entered a wrong password" });
     }
-    if (user.otp === null) {
-      return res.status(400).json({ message: "you haven't verified your otp" });
-    }
+    // if (user.otp === null) {
+    //   return res.status(400).json({ message: "you haven't verified your otp" });
+    // }
     if (user.isVerified === false) {
       return res.status(400).json({ message: "you haven't verified your otp" });
     }
