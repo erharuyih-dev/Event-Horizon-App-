@@ -3,6 +3,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.models");
+const { isValidObjectId } = require("mongoose");
 
 const createUser = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -58,6 +59,9 @@ const signIn = async (req, res) => {
       expiresIn: "1h",
     });
     user.token = token;
+    user.otp = null;
+    user.otpExpiresAt = null;
+    await user.save();
 
     return res
       .status(201)
@@ -129,9 +133,100 @@ const verifyOtp = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error", error });
   }
 };
+const resendOtp = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "invalid id" });
+    }
+    if (user.isVerified === true) {
+      user.otp = null;
+      user.otpExpiresAt = null;
+      return res.status(400).json({ message: "this user is already verified" });
+    }
+
+    // Generate a 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000);
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    user.otp = otpCode;
+    user.otpExpiresAt = otpExpiresAt;
+
+    await user.save(); // Save the user document, NOT otp
+
+    return res.status(201).json({
+      message: "otp generated successfully",
+      otp: user.otp,
+    });
+  } catch (error) {
+    console.error(error); // This will print the exact error in your terminal console
+    return res.status(500).json({
+      message: "Internal Server, failed to generate otp",
+      error: error.message,
+    });
+  }
+};
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "user not found" });
+    }
+    if (user.isVerified === false) {
+      return res.status(400).json({ message: "ur account is not verified" });
+    }
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otpExpiresAt = Date.now() + 10 * 60 * 1000;
+    user.otp = otp;
+    user.otpExpiresAt = otpExpiresAt;
+    await user.save();
+    return res.status(201).json({
+      message: "otp sent successfully",
+      otp: otp,
+      otpExpiresAt: otpExpiresAt,
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+const resetPassword = async (req, res) => {
+  const { otp, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ otp: otp });
+
+    if (!user) {
+      return res.status(400).json({ message: "incorrect OTP" });
+    }
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: "you have entered your old password. Enter a new password",
+        action: " or go and signIn with your old password",
+      });
+    }
+
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ message: "OTP has expired" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.otp = null;
+    user.otpExpiresAt = null;
+    await user.save();
+    return res.status(201).json({ message: "Password reset successfully" });
+  } catch (e) {
+    console.log(e);
+    return res.status(500).json({ message: "Internal Server Error " });
+  }
+};
 module.exports = {
   createUser,
   signIn,
   sendOtp,
+  resendOtp,
   verifyOtp,
+  forgotPassword,
+  resetPassword,
 };
