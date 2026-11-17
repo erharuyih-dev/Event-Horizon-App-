@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.models");
 const { isValidObjectId } = require("mongoose");
+const sendEmail = require("../helpers/email");
 
 const createUser = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
@@ -23,6 +24,13 @@ const createUser = async (req, res) => {
       email,
       password: hashPassword,
     });
+    await sendEmail(
+      user.email,
+      "Welcome to the Event_Horizon Platform",
+      `Hello ${user.firstName}, 
+      Please verify your account with the OTP that will be sent shortly. `,
+    );
+
     return res
       .status(201)
       .json({ message: "Profile created successfully", newUser: newUser });
@@ -91,7 +99,11 @@ const sendOtp = async (req, res) => {
     user.otpExpiresAt = otpExpiresAt;
 
     await user.save(); // Save the user document, NOT otp
-
+    await sendEmail(
+      user.email,
+      "OTP for Verification",
+      `Your otp is: ${otpCode}`,
+    );
     return res.status(201).json({
       message: "otp generated successfully",
       otp: user.otp,
@@ -127,6 +139,12 @@ const verifyOtp = async (req, res) => {
     user.otp = null;
     user.otpExpiresAt = null;
     await user.save();
+    await sendEmail(
+      user.email,
+      "OTP for Verification",
+      `Your otp is: ${user.otp}`,
+      "You have successfully verified your account with this otp",
+    );
 
     return res.status(201).json({ message: "email verified successfully" });
   } catch (error) {
@@ -153,7 +171,11 @@ const resendOtp = async (req, res) => {
     user.otpExpiresAt = otpExpiresAt;
 
     await user.save(); // Save the user document, NOT otp
-
+    await sendEmail(
+      user.email,
+      "OTP for Verification",
+      `Your otp is: ${otpCode}`,
+    );
     return res.status(201).json({
       message: "otp generated successfully",
       otp: user.otp,
@@ -181,6 +203,11 @@ const forgotPassword = async (req, res) => {
     user.otp = otp;
     user.otpExpiresAt = otpExpiresAt;
     await user.save();
+    await sendEmail(
+      user.email,
+      "OTP for Verification",
+      `Your reset otp is: ${otp}`,
+    );
     return res.status(201).json({
       message: "otp sent successfully",
       otp: otp,
