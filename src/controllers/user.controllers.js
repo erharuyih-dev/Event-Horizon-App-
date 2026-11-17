@@ -6,7 +6,7 @@ const User = require("../models/user.models");
 const { isValidObjectId } = require("mongoose");
 const sendEmail = require("../helpers/email");
 
-const createUser = async (req, res) => {
+const createUsers = async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
   try {
     if (!firstName || !lastName || !email || !password) {
